@@ -73,11 +73,33 @@ EipStatus IfaceWaitForIp(const char *const iface,
 void GetHostName(CipString *hostname);
 
 /** @ingroup CIP_API
+ * @brief Set the CIP revision of the device's identity object.
+ *
+ * @param major unsigned 8 bit major revision
+ * @param minor unsigned 8 bit minor revision
+ */
+void SetDeviceRevision(EipUint8 major, EipUint8 minor);
+
+/** @ingroup CIP_API
  * @brief Set the serial number of the device's identity object.
  *
  * @param serial_number unique 32 bit number identifying the device
  */
 void SetDeviceSerialNumber(const EipUint32 serial_number);
+
+/** @ingroup CIP_API
+ * @brief Set the DeviceType of the device's identity object.
+ *
+ * @param type 16 bit unsigned number representing the CIP device type
+ */
+void SetDeviceType(const EipUint16 type);
+
+/** @ingroup CIP_API
+ * @brief Set the ProductCode of the device's identity object.
+ *
+ * @param type 16 bit unsigned number representing the product code
+ */
+void SetDeviceProductCode(const EipUint16 code);
 
 /** @ingroup CIP_API
  * @brief Set the device's Status word also updating the Extended Device Status
@@ -88,6 +110,44 @@ void SetDeviceSerialNumber(const EipUint32 serial_number);
  *  Device Status field in Identity object's ext_status member.
  */
 void SetDeviceStatus(const CipWord status);
+
+/** @ingroup CIP_API
+ * @breif Set device's CIP VendorId
+ *
+ * @param vendor_id vendor ID, can be zero
+ *
+ * When OpENer is used as a library, multiple CIP adapters may use it
+ * and may want to set the VendorId.  Note: some applications allow
+ * the use of VendorId 0.
+ */
+void SetDeviceVendorId(CipUint vendor_id);
+
+/** @ingroup CIP_API
+ * @brief Get device's CIP VendorId
+ *
+ * @returns the currently used VendorId
+ */
+CipUint GetDeviceVendorId(void);
+
+/** @ingroup CIP_API
+ * @breif Set device's CIP ProductName
+ *
+ * @param product_name C-string to use as ProducName
+ *
+ * When OpENer is used as a library, multiple CIP adapters may use it
+ * and will need to change the product name.
+ */
+void SetDeviceProductName(const char *product_name);
+
+/** @ingroup CIP_API
+ * @brief Get device's current CIP ProductName
+ *
+ * Hint, use GetCstrFromCipShortString() to get a printable/logable C
+ * string, since CipShortString's aren't NUL terminated.
+ *
+ * @returns the CipShortString for the product name
+ */
+CipShortString *GetDeviceProductName(void);
 
 /** @ingroup CIP_API
  * @brief Initialize and setup the CIP-stack
@@ -109,6 +169,30 @@ EipStatus CipStackInit(const EipUint16 unique_connection_id);
  * by the application!
  */
 void ShutdownCipStack(void);
+
+/** @ingroup CIP_API
+ * @brief Enable the Run/Idle header for consumed (O->T) cyclic data
+ * @param onoff if set (default), OpENer expects 4 byte Run/Idle header from scanner
+ */
+void CipRunIdleHeaderSetO2T(bool onoff);
+
+/** @ingroup CIP_API
+ * @brief Get current setting of the O->T Run/Idle header
+ * @return current setting of the O->T Run/Idle header
+ */
+bool CipRunIdleHeaderGetO2T(void);
+
+/** @ingroup CIP_API
+ * @brief Enable the Run/Idle header for produced (T->O) cyclic data
+ * @param onoff if set (not default), OpENer includes a 4 byte Run/Idle header in responses to scanner
+ */
+void CipRunIdleHeaderSetT2O(bool onoff);
+
+/** @ingroup CIP_API
+ * @brief Get current setting of the T->O Run/Idle header
+ * @return current setting of the T->O Run/Idle header
+ */
+bool CipRunIdleHeaderGetT2O(void);
 
 /** @ingroup CIP_API
  * @brief Get a pointer to a CIP object with given class code
@@ -533,6 +617,13 @@ typedef CipError (*ConnectionReceiveDataFunction)(CipConnectionObject *
                                                   const EipUint8 *data,
                                                   const EipUint16 data_length);
 
+ /** @ingroup CIP_API
+ * @brief Function pointer for timeout checker functions 
+ *
+ * @param elapsed_time elapsed time since last check
+ */
+typedef void (*TimeoutCheckerFunction)(const MilliSeconds elapsed_time);
+
 /** @ingroup CIP_API
  * @brief register open functions for an specific object.
  *
@@ -658,8 +749,7 @@ EipStatus HandleReceivedExplictUdpData(const int socket_handle,
  *           connection hijacking
  *  @return EIP_OK on success
  */
-EipStatus
-HandleReceivedConnectedData(const EipUint8 *const received_data,
+EipStatus HandleReceivedConnectedData(const EipUint8 *const received_data,
                             int received_data_length,
                             struct sockaddr_in *from_address);
 
@@ -676,8 +766,7 @@ HandleReceivedConnectedData(const EipUint8 *const received_data,
  *
  * @return EIP_OK on success
  */
-EipStatus
-ManageConnections(MilliSeconds elapsed_time);
+EipStatus ManageConnections(MilliSeconds elapsed_time);
 
 /** @ingroup CIP_API
  * @brief Trigger the production of an application triggered connection.
@@ -698,8 +787,7 @@ ManageConnections(MilliSeconds elapsed_time);
  * connection
  * @return EIP_OK on success
  */
-EipStatus
-TriggerConnections(unsigned int output_assembly_id,
+EipStatus TriggerConnections(unsigned int output_assembly_id,
                    unsigned int input_assembly_id);
 
 /** @ingroup CIP_API
@@ -732,8 +820,7 @@ void CloseSession(int socket_handle);
  *  return status EIP_ERROR .. error
  *                EIP_OK ... successful finish
  */
-EipStatus
-ApplicationInitialization(void);
+EipStatus ApplicationInitialization(void);
 
 /** @ingroup CIP_CALLBACK_API
  * @brief Allow the device specific application to perform its execution
@@ -774,8 +861,7 @@ void CheckIoConnectionEvent(unsigned int output_assembly_id,
  * The length of the data is already checked within the stack. Therefore the
  * user only has to check if the data is valid.
  */
-EipStatus
-AfterAssemblyDataReceived(CipInstance *instance);
+EipStatus AfterAssemblyDataReceived(CipInstance *instance);
 
 /** @ingroup CIP_CALLBACK_API
  * @brief Inform the application that the data of an assembly
@@ -789,8 +875,7 @@ AfterAssemblyDataReceived(CipInstance *instance);
  *          - true assembly data has changed
  *          - false assembly data has not changed
  */
-EipBool8
-BeforeAssemblyDataSend(CipInstance *instance);
+EipBool8 BeforeAssemblyDataSend(CipInstance *instance);
 
 /** @ingroup CIP_CALLBACK_API
  * @brief Emulate as close a possible a power cycle of the device
@@ -798,8 +883,7 @@ BeforeAssemblyDataSend(CipInstance *instance);
  * @return if the service is supported the function will not return.
  *     EIP_ERROR if this service is not supported
  */
-EipStatus
-ResetDevice(void);
+EipStatus ResetDevice(void);
 
 /** @ingroup CIP_CALLBACK_API
  * @brief Reset the device to the initial configuration and emulate as close as
@@ -808,8 +892,7 @@ ResetDevice(void);
  * @return if the service is supported the function will not return.
  *     EIP_ERROR if this service is not supported
  */
-EipStatus
-ResetDeviceToInitialConfiguration(void);
+EipStatus ResetDeviceToInitialConfiguration(void);
 
 /** @ingroup CIP_CALLBACK_API
  * @brief Allocate memory for the CIP stack
@@ -843,37 +926,19 @@ void CipFree(void *data);
 void RunIdleChanged(EipUint32 run_idle_value);
 
 /** @ingroup CIP_CALLBACK_API
- * @brief create a producing or consuming UDP socket
- *
- * @param communication_direction kUdpCommunicationDirectionProducing or kUdpCommunicationDirectionConsuming
- * @param socket_data pointer to the address holding structure
- *     Attention: For producing point-to-point connection the
- *     *pa_pstAddr->sin_addr.s_addr member is set to 0 by OpENer. The network
- *     layer of the application has to set the correct address of the
- *     originator.
- *     Attention: For consuming connection the network layer has to set the
- * pa_pstAddr->sin_addr.s_addr to the correct address of the originator.
- * FIXME add an additional parameter that can be used by the CIP stack to
- * request the originators sockaddr_in data.
- * @param qos_for_socket CIP QoS object parameter value
- * @return socket identifier on success
- *         -1 on error
- */
-int CreateUdpSocket(UdpCommuncationDirection communication_direction,
-                    struct sockaddr_in *socket_data,
-                    CipUsint qos_for_socket);
+ * @brief Create the UDP socket for the implicit IO messaging, 
+ * one socket handles all connections
+ * @return the socket handle if successful, else kEipInvalidSocket
+*/ 
+int CreateUdpSocket(void);
 
 /** @ingroup CIP_CALLBACK_API
- * @brief Create a producing or consuming UDP socket
- *
- * @param socket_data Pointer to the "send to" address
- * @param socket_handle Socket descriptor to send on
+ * @brief Sends the data for the implicit IO messaging via UDP socket
+ * @param socket_data Address message to be sent
  * @param outgoing message The constructed outgoing message
  * @return kEipStatusOk on success
  */
-EipStatus
-SendUdpData(const struct sockaddr_in *const socket_data,
-            const int socket_handle,
+EipStatus SendUdpData(const struct sockaddr_in *const socket_data,
             const ENIPMessage *const outgoing_message);
 
 /** @ingroup CIP_CALLBACK_API
@@ -882,6 +947,13 @@ SendUdpData(const struct sockaddr_in *const socket_data,
  * @param socket_handle socket descriptor to close
  */
 void CloseSocket(const int socket_handle);
+
+/** @ingroup CIP_CALLBACK_API
+ * @brief Register function pointer in timeout_checker_array
+ *
+ * @param timeout_checker_function pointer to object specific timeout checker function
+ */
+void RegisterTimeoutChecker(TimeoutCheckerFunction timeout_checker_function);
 
 /** @mainpage OpENer - Open Source EtherNet/IP(TM) Communication Stack
  * Documentation

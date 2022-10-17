@@ -683,8 +683,8 @@ CipUsint ConnectionObjectGetConnectionTimeoutMultiplier(
 }
 
 void ConnectionObjectSetConnectionTimeoutMultiplier(
-  CipConnectionObject *connection_object,
-  CipUsint connection_timeout_multiplier) {
+  CipConnectionObject *const connection_object,
+  const CipUsint connection_timeout_multiplier) {
   connection_object->connection_timeout_multiplier =
     connection_timeout_multiplier;
 }
@@ -905,6 +905,7 @@ void ConnectionObjectResetSequenceCounts(
   connection_object->eip_level_sequence_count_producing = 0;
   connection_object->sequence_count_producing = 0;
   connection_object->eip_level_sequence_count_consuming = 0;
+  connection_object->eip_first_level_sequence_count_received = false;
   connection_object->sequence_count_consuming = 0;
 }
 

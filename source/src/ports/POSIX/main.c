@@ -6,8 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <time.h>
 #include <unistd.h>
-#include <sys/capability.h>
 
 #ifdef OPENER_RT
 #include <pthread.h>
@@ -66,35 +66,6 @@ volatile int g_end_stack = 0;
 int main(int argc,
          char *arg[]) {
 
-  cap_t capabilities;
-  cap_value_t capabilities_list[1];
-
-  capabilities = cap_get_proc();
-  if(NULL == capabilities) {
-    printf("Could not get capabilities\n");
-    exit(EXIT_FAILURE);
-  }
-
-  capabilities_list[0] = CAP_NET_RAW;
-  if(-1 ==
-     cap_set_flag(capabilities, CAP_EFFECTIVE, 1, capabilities_list,
-                  CAP_SET) ) {
-    cap_free(capabilities);
-    printf("Could not set CAP_NET_RAW capability\n");
-    exit(EXIT_FAILURE);
-  }
-
-  if(-1 == cap_set_proc(capabilities) ) {
-    cap_free(capabilities);
-    printf("Could not push CAP_NET_RAW capability to process\n");
-    exit(EXIT_FAILURE);
-  }
-
-  if(-1 == cap_free(capabilities) ) {
-    printf("Could not free capabilities value\n");
-    exit(EXIT_FAILURE);
-  }
-
   if(argc != 2) {
     fprintf(stderr, "Wrong number of command line parameters!\n");
     fprintf(stderr, "Usage: %s [interface name]\n", arg[0]);
@@ -117,8 +88,11 @@ int main(int argc,
   SetDeviceSerialNumber(123456789);
 
   /* unique_connection_id should be sufficiently random or incremented and stored
-   *  in non-volatile memory each time the device boots.
+   *  in non-volatile memory each time the device boots. This is used as the upper
+   *  16 bits of the connection id. Here we use random number approach, first seed
+   *  the PRNG to ensure we don't get the same value on every startup.
    */
+  srand(time(NULL));
   EipUint16 unique_connection_id = rand();
 
   /* Setup the CIP Layer. All objects are initialized with the default
@@ -282,7 +256,7 @@ static void *executeEventLoop(void *pthread_arg) {
 
   /* The event loop. Put other processing you need done continually in here */
   while(!g_end_stack) {
-    if(kEipStatusOk != NetworkHandlerProcessOnce() ) {
+    if(kEipStatusOk != NetworkHandlerProcessCyclic() ) {
       OPENER_TRACE_ERR("Error in NetworkHandler loop! Exiting OpENer!\n");
       break;
     }

@@ -151,6 +151,18 @@ EipStatus NotifyClass(const CipClass *RESTRICT const cip_class,
   return kEipStatusOkSend;
 }
 
+CipUint GetMaxInstanceNumber(CipClass *RESTRICT const cip_class) {
+  CipUint max_instance = 0;
+  CipInstance *instance = cip_class->instances;
+  while (NULL != instance) { /* loop trough all instances of class */
+    if(instance->instance_number > max_instance) {
+      max_instance = instance->instance_number;
+    }
+    instance = instance->next;
+  }
+  return max_instance;
+}
+
 CipInstance *AddCipInstances(CipClass *RESTRICT const cip_class,
                              const int number_of_instances) {
   CipInstance **next_instance = NULL;
@@ -191,7 +203,7 @@ CipInstance *AddCipInstances(CipClass *RESTRICT const cip_class,
     }
 
     CipInstance *current_instance =
-      (CipInstance *) CipCalloc(1, sizeof(CipInstance) );
+      (CipInstance *) CipCalloc( 1, sizeof(CipInstance) );
     OPENER_ASSERT(NULL != current_instance); /* fail if run out of memory */
     if(NULL == current_instance) {
       break;
@@ -220,6 +232,8 @@ CipInstance *AddCipInstances(CipClass *RESTRICT const cip_class,
     instance_number++; /* update to the number of the next node*/
   }
 
+  cip_class->max_instance = GetMaxInstanceNumber(cip_class); /* update largest instance number (class Attribute 2) */
+
   if(new_instances != number_of_instances) {
     /* TODO: Free again all attributes and instances allocated so far in this call. */
     OPENER_TRACE_ERR(
@@ -240,6 +254,9 @@ CipInstance *AddCipInstance(CipClass *RESTRICT const cip_class,
     instance = AddCipInstances(cip_class, 1);
     instance->instance_number = instance_id;
   }
+
+  cip_class->max_instance = GetMaxInstanceNumber(cip_class); /* update largest instance number (class Attribute 2) */
+
   return instance;
 }
 
@@ -258,7 +275,7 @@ CipClass *CreateCipClass(const CipUdint class_code,
   OPENER_TRACE_INFO("creating class '%s' with code: 0x%" PRIX32 "\n", name,
                     class_code);
 
-  OPENER_ASSERT(NULL == GetCipClass(class_code) ); /* check if an class with the ClassID already exists */
+  OPENER_ASSERT( NULL == GetCipClass(class_code) ); /* check if an class with the ClassID already exists */
   /* should never try to redefine a class*/
 
   /* a metaClass is a class that holds the class attributes and services
@@ -267,8 +284,8 @@ CipClass *CreateCipClass(const CipUdint class_code,
      and contains a pointer to a metaclass
      CIP never explicitly addresses a metaclass*/
 
-  CipClass *const cip_class = (CipClass *) CipCalloc(1, sizeof(CipClass) ); /* create the class object*/
-  CipClass *const meta_class = (CipClass *) CipCalloc(1, sizeof(CipClass) ); /* create the metaclass object*/
+  CipClass *const cip_class = (CipClass *) CipCalloc( 1, sizeof(CipClass) ); /* create the class object*/
+  CipClass *const meta_class = (CipClass *) CipCalloc( 1, sizeof(CipClass) ); /* create the metaclass object*/
 
   /* initialize the class-specific fields of the Class struct*/
   cip_class->class_code = class_code; /* the class remembers the class ID */
@@ -398,8 +415,8 @@ void InsertAttribute(CipInstance *const instance,
       cip_class->get_single_bit_mask[index] |=
         (cip_flags & kGetableSingle) ? 1 << (attribute_number) % 8 : 0;
       cip_class->get_all_bit_mask[index] |=
-        (cip_flags & (kGetableAll | kGetableAllDummy) ) ? 1 <<
-        (attribute_number) % 8 : 0;
+        ( cip_flags & (kGetableAll | kGetableAllDummy) ) ? 1 <<
+          (attribute_number) % 8 : 0;
       cip_class->set_bit_mask[index] |= ( (cip_flags & kSetable) ? 1 : 0 ) <<
                                         ( (attribute_number) % 8 );
 
@@ -445,18 +462,18 @@ void InsertService(const CipClass *const cip_class,
 void InsertGetSetCallback(CipClass *const cip_class,
                           CipGetSetCallback callback_function,
                           CIPAttributeFlag callbacks_to_install) {
-  if(0 != (kPreGetFunc & callbacks_to_install) ) {
+  if( 0 != (kPreGetFunc & callbacks_to_install) ) {
     cip_class->PreGetCallback = callback_function;
   }
-  if(0 != (kPostGetFunc & callbacks_to_install) ) {
+  if( 0 != (kPostGetFunc & callbacks_to_install) ) {
     cip_class->PostGetCallback = callback_function;
   }
-  if(0 != (kPreSetFunc & callbacks_to_install) ) {
+  if( 0 != (kPreSetFunc & callbacks_to_install) ) {
     cip_class->PreSetCallback = callback_function;
   }
   /* The PostSetCallback is used for both, the after set action and the storage
    * of non volatile data. Therefore check for both flags set. */
-  if(0 != ( (kPostSetFunc | kNvDataFunc) & callbacks_to_install ) ) {
+  if( 0 != ( (kPostSetFunc | kNvDataFunc) & callbacks_to_install ) ) {
     cip_class->PostSetCallback = callback_function;
   }
 }
@@ -509,7 +526,7 @@ EipStatus GetAttributeSingle(CipInstance *RESTRICT const instance,
     uint8_t get_bit_mask =
       (instance->cip_class->get_single_bit_mask[CalculateIndex(attribute_number)
        ]);
-    if(0 != (get_bit_mask & (1 << (attribute_number % 8) ) ) ) {
+    if( 0 != ( get_bit_mask & ( 1 << (attribute_number % 8) ) ) ) {
       OPENER_TRACE_INFO("getAttribute %d\n",
                         message_router_request->request_path.attribute_number); /* create a reply message containing the data*/
 
@@ -757,7 +774,7 @@ EipStatus SetAttributeSingle(CipInstance *RESTRICT const instance,
     } else {
       uint8_t set_bit_mask =
         (instance->cip_class->set_bit_mask[CalculateIndex(attribute_number)]);
-      if(0 != (set_bit_mask & (1 << (attribute_number % 8) ) ) ) {
+      if( 0 != ( set_bit_mask & ( 1 << (attribute_number % 8) ) ) ) {
         OPENER_TRACE_INFO("setAttribute %d\n", attribute_number);
 
         /* Call the PreSetCallback if enabled for this attribute and the class provides one. */
@@ -775,7 +792,7 @@ EipStatus SetAttributeSingle(CipInstance *RESTRICT const instance,
                           message_router_response);                                          //writes data to attribute, sets resonse status
 
         /* Call the PostSetCallback if enabled for this attribute and the class provides one. */
-        if( (attribute->attribute_flags & (kPostSetFunc | kNvDataFunc) ) &&
+        if( ( attribute->attribute_flags & (kPostSetFunc | kNvDataFunc) ) &&
             NULL != instance->cip_class->PostSetCallback ) {
           instance->cip_class->PostSetCallback(instance,
                                                attribute,
@@ -1041,7 +1058,7 @@ EipStatus GetAttributeAll(CipInstance *instance,
       /* for each instance attribute of this class */
       EipUint16 attribute_number = attribute->attribute_number;
       if( (instance->cip_class->get_all_bit_mask[CalculateIndex(attribute_number)
-           ]) & (1 << (attribute_number % 8) ) ) {
+           ]) & ( 1 << (attribute_number % 8) ) ) {
         /* only return attributes that are flagged as being part of GetAttributeAll */
         message_router_request->request_path.attribute_number =
           attribute_number;
@@ -1088,7 +1105,7 @@ EipStatus GetAttributeList(CipInstance *instance,
         uint8_t get_bit_mask =
           (instance->cip_class->get_single_bit_mask[CalculateIndex(
                                                       attribute_number)]);
-        if(0 != (get_bit_mask & (1 << (attribute_number % 8) ) ) ) { //check if attribute is gettable
+        if( 0 != ( get_bit_mask & ( 1 << (attribute_number % 8) ) ) ) { //check if attribute is gettable
           AddSintToMessage(kCipErrorSuccess, &message_router_response->message); // Attribute status
           AddSintToMessage(0, &message_router_response->message); // Reserved, shall be 0
           attribute->encode(attribute->data, &message_router_response->message); // write Attribute data to response
@@ -1146,7 +1163,7 @@ EipStatus SetAttributeList(CipInstance *instance,
 
         uint8_t set_bit_mask =
           (instance->cip_class->set_bit_mask[CalculateIndex(attribute_number)]);
-        if(0 != (set_bit_mask & (1 << (attribute_number % 8) ) ) ) { //check if attribute is settable
+        if( 0 != ( set_bit_mask & ( 1 << (attribute_number % 8) ) ) ) { //check if attribute is settable
           AddSintToMessage(kCipErrorSuccess, &message_router_response->message); // Attribute status
           AddSintToMessage(0, &message_router_response->message); // Reserved, shall be 0
           attribute->decode(attribute->data,
@@ -1242,7 +1259,7 @@ int DecodePaddedEPath(CipEpath *epath,
   epath->attribute_number = 0;
 
   while(number_of_decoded_elements < epath->path_size) {
-    if(kSegmentTypeReserved == ( (*message_runner) & kSegmentTypeReserved ) ) {
+    if( kSegmentTypeReserved == ( (*message_runner) & kSegmentTypeReserved ) ) {
       /* If invalid/reserved segment type, segment type greater than 0xE0 */
       return kEipStatusError;
     }
@@ -1258,7 +1275,7 @@ int DecodePaddedEPath(CipEpath *epath,
       case SEGMENT_TYPE_LOGICAL_SEGMENT + LOGICAL_SEGMENT_TYPE_CLASS_ID +
         LOGICAL_SEGMENT_FORMAT_SIXTEEN_BIT:
         message_runner += 2;
-        epath->class_id = GetUintFromMessage(&(message_runner) );
+        epath->class_id = GetUintFromMessage( &(message_runner) );
         number_of_decoded_elements++;
         break;
 
@@ -1271,7 +1288,7 @@ int DecodePaddedEPath(CipEpath *epath,
       case SEGMENT_TYPE_LOGICAL_SEGMENT + LOGICAL_SEGMENT_TYPE_INSTANCE_ID +
         LOGICAL_SEGMENT_FORMAT_SIXTEEN_BIT:
         message_runner += 2;
-        epath->instance_number = GetUintFromMessage(&(message_runner) );
+        epath->instance_number = GetUintFromMessage( &(message_runner) );
         number_of_decoded_elements++;
         break;
 
@@ -1284,7 +1301,7 @@ int DecodePaddedEPath(CipEpath *epath,
       case SEGMENT_TYPE_LOGICAL_SEGMENT + LOGICAL_SEGMENT_TYPE_ATTRIBUTE_ID +
         LOGICAL_SEGMENT_FORMAT_SIXTEEN_BIT:
         message_runner += 2;
-        epath->attribute_number = GetUintFromMessage(&(message_runner) );
+        epath->attribute_number = GetUintFromMessage( &(message_runner) );
         number_of_decoded_elements++;
         break;
 
@@ -1400,16 +1417,7 @@ EipStatus CipDeleteService(CipInstance *RESTRICT const instance,
     class->number_of_instances--; /* update the total number of instances
                                             recorded by the class - Attr. 3 */
 
-    // update largest instance number (class Attribute 2)
-    instances = class->instances;
-    EipUint16 max_instance = 0;
-    while (NULL != instances->next) {
-      if(instances->instance_number > max_instance) {
-        max_instance = instances->instance_number;
-      }
-      instances = instances->next;
-    }
-    class->max_instance = max_instance;
+    class->max_instance = GetMaxInstanceNumber(class); /* update largest instance number (class Attribute 2) */
 
     message_router_response->general_status = kCipErrorSuccess;
   }
@@ -1452,9 +1460,9 @@ void AllocateAttributeMasks(CipClass *target_class) {
   OPENER_TRACE_INFO(
     ">>> Allocate memory for %s %u bytes times 3 for masks\n",
     target_class->class_name, size);
-  target_class->get_single_bit_mask = CipCalloc(size, sizeof(uint8_t) );
-  target_class->set_bit_mask = CipCalloc(size, sizeof(uint8_t) );
-  target_class->get_all_bit_mask = CipCalloc(size, sizeof(uint8_t) );
+  target_class->get_single_bit_mask = CipCalloc( size, sizeof(uint8_t) );
+  target_class->set_bit_mask = CipCalloc( size, sizeof(uint8_t) );
+  target_class->get_all_bit_mask = CipCalloc( size, sizeof(uint8_t) );
 }
 
 size_t CalculateIndex(EipUint16 attribute_number) {

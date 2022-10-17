@@ -64,7 +64,8 @@ OpENer also now has a real-time capable POSIX startup via the OpENer_RT option, 
 If you want to use OpENer_RT, instead of step 2, the  ``sudo setcap cap_net_raw,cap_ipc_lock,cap_sys_nice+ep ./src/ports/POSIX/OpENer
 `` has to be run to grant OpENEr ``CAP_SYS_NICE``, ``CAP_IPC_LOCK``, and the ``CAP_NET_RAW`` capabilities, needed for the RT mode
 
-Shared library support has been added to CMakeLists file and is enabled by setting OPENER_BUILD_SHARED_LIBS=ON. It has only been tested under Linux/POSIX platform.
+OpENer can also be built and installed as a library by setting the CMake flag `-DOPENER_INSTALL_AS_LIB`.  To build a shared library,
+the global option `-DBUILD_SHARED_LIBS=ON` should also be set.  It has only been tested under Linux/POSIX platform.
 
 
 Compile for Windows XP/7/8 via Visual Studio:
@@ -177,6 +178,37 @@ Usually to reproduce a crash it's enough to retransmit the testcase using ``cat 
 However, since CIP runs over the EtherNet/IP layer, it must first register a valid session. Therefore, we need to use a dedicated script:
 `python fuzz/scripts/send_testcase.py IP testcase_path`
 
+Running an OpENer "swarm":
+--------------------------
+
+1. Create a macvlan network for this purpose and tie it to the desired eth port.
+Specify the IP range and use aux address to exclude the addresses used by other devices in the subnet such as the IP of the EIP scanner PC, network bridge, etc.:
+docker network create -d macvlan --subnet=192.168.135.253/24 --ip-range=192.168.135.100/24 --aux-address="PC1=192.168.135.250" --aux-address="VM=192.168.135.252" --aux-address="BR=192.168.135.253" -o parent=eth2 mac_vlan_network
+
+Check the network you created with: docker network inspect mac_vlan_network
+
+The network will assign IP's to the docker containers and an external scanner will be able to communicate with them. To access the containers from inside the docker host, you will have to create a bridge.
+
+2. Create a Dockerfile.
+This uses Ubuntu as the base image. It will copy OpENer to the image root and install the required packages. Lastly run OpENer on eth0 of the image:
+#Filename: Dockerfile
+FROM ubuntu:20.04
+ADD ./bin/posix/src/ports/POSIX/OpENer /
+RUN apt-get update && apt-get install -y --no-install-recommends libcap-dev nmap
+ENTRYPOINT ["./OpENer", "eth0"]
+
+3. Create a docker-compose.yml that will let you connect the macvlan network to the containers and easily build them and tear them down:
+version: "3.3"
+services:
+dockerimagename:
+network_mode: mac_vlan_network
+image: dockeruser/dockerimagename
+
+Note that to login to a running container, you have to expose a port in the dockerfile and dockercompose files and set up a network bridge.
+
+Docker commands to start and stop multiple instances of the OpENer containers:
+Start up 128 docker image instances: docker-compose up --scale dockerimagename=128 -d
+Shut down all the instances: docker-compose down
 
 Porting OpENer:
 ---------------
