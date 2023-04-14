@@ -343,13 +343,13 @@ size_t CalculateIndex(EipUint16 attribute_number);
  *  the service array is not expandable if you insert a service that has
  *  already been defined, the previous service will be replaced
  *
- * @param cip_class_to_add_service pointer to CIP object. (may be also
+ * @param cip_class pointer to CIP object. (may be also
  * instance# 0)
  * @param service_code service code of service to be inserted.
  * @param service_function pointer to function which represents the service.
  * @param service_name name of the service
  */
-void InsertService(const CipClass *const cip_class_to_add_service,
+void InsertService(const CipClass *const cip_class,
                    const EipUint8 service_code,
                    const CipServiceFunction service_function,
                    char *const service_name);
@@ -573,7 +573,7 @@ typedef struct cip_connection_object CipConnectionObject;
  *
  * @return CIP error code
  */
-typedef EipStatus (*OpenConnectionFunction)(
+typedef CipError (*OpenConnectionFunction)(
   CipConnectionObject *RESTRICT const connection_object,
   EipUint16 *const extended_error_code);
 
@@ -583,7 +583,8 @@ typedef EipStatus (*OpenConnectionFunction)(
  * @param connection_object The connection object which is closing the
  * connection
  */
-typedef void (*ConnectionCloseFunction)(CipConnectionObject *connection_object);
+typedef void (*ConnectionCloseFunction)(CipConnectionObject *RESTRICT
+                                        connection_object);
 
 /** @ingroup CIP_API
  * @brief Function prototype for handling the timeout of connections

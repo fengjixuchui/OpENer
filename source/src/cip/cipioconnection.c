@@ -45,7 +45,7 @@ EipUint16 HandleConfigData(CipConnectionObject *connection_object);
 /* Regularly close the IO connection. If it is an exclusive owner or input only
  * connection and in charge of the connection a new owner will be searched
  */
-void CloseIoConnection(CipConnectionObject *connection_object);
+void CloseIoConnection(CipConnectionObject *RESTRICT connection_object);
 
 void HandleIoConnectionTimeOut(CipConnectionObject *connection_object);
 
@@ -150,13 +150,14 @@ EipUint16 SetupIoConnectionOriginatorToTargetConnectionPoint(
        io_connection_object->consumed_connection_path.instance_number =
        io_connection_object->connection_path.connection_point[
        kConnectionPointConsumer];*/
-    io_connection_object->consumed_path.attribute_id_or_connection_point = 3;
+    io_connection_object->consumed_path.attribute_id_or_connection_point =
+      kAssemblyObjectInstanceAttributeIdData;
     int data_size = ConnectionObjectGetOToTConnectionSize(io_connection_object);
     int diff_size = 0;
 
-    /* an assembly object should always have an attribute 3 */
+    /* an assembly object should always have a data attribute. */
     CipAttributeStruct *attribute = GetCipAttribute(instance,
-                                                    io_connection_object->consumed_path.attribute_id_or_connection_point);
+                                                    kAssemblyObjectInstanceAttributeIdData);
     OPENER_ASSERT(attribute != NULL);
     bool is_heartbeat = ( ( (CipByteArray *) attribute->data )->length == 0 );
     if(kConnectionObjectTransportClassTriggerTransportClass1 ==
@@ -248,10 +249,11 @@ EipUint16 SetupIoConnectionTargetToOriginatorConnectionPoint(
     io_connection_object->producing_instance = instance;
     int data_size = ConnectionObjectGetTToOConnectionSize(io_connection_object);
     int diff_size = 0;
-    /* an assembly object should always have an attribute 3 */
-    io_connection_object->produced_path.attribute_id_or_connection_point = 3;
+    /* an assembly object should always have a data attribute. */
+    io_connection_object->produced_path.attribute_id_or_connection_point =
+      kAssemblyObjectInstanceAttributeIdData;
     CipAttributeStruct *attribute = GetCipAttribute(instance,
-                                                    io_connection_object->produced_path.attribute_id_or_connection_point);
+                                                    kAssemblyObjectInstanceAttributeIdData);
     OPENER_ASSERT(attribute != NULL);
     bool is_heartbeat = ( ( (CipByteArray *) attribute->data )->length == 0 );
     if(kConnectionObjectTransportClassTriggerTransportClass1 ==
@@ -724,7 +726,7 @@ static int transfer_master_connection(CipConnectionObject *connection_object) {
 }
 
 /* Always sync any changes with HandleIoConnectionTimeout() */
-void CloseIoConnection(CipConnectionObject *connection_object) {
+void CloseIoConnection(CipConnectionObject *RESTRICT connection_object) {
   ConnectionObjectInstanceType instance_type = ConnectionObjectGetInstanceType(connection_object);
   ConnectionObjectConnectionType conn_type = ConnectionObjectGetTToOConnectionType(connection_object);
 
